@@ -477,19 +477,34 @@ namespace ScrcpyLauncher
                     var f = flags[selectedIndex];
                     if (f.RequiresInput)
                     {
-                        f.IsSelected = true;
-                        Console.SetCursorPosition(0, Console.WindowHeight - 2);
-                        Console.Write("Inserisci valore per " + f.Flag + ": ");
-                        Console.CursorVisible = true;
-                        string input = Console.ReadLine();
-                        Console.CursorVisible = false;
-                        if (!string.IsNullOrWhiteSpace(input))
+                        // SE IL FLAG È --start-app, APRI IL SELETTORE
+                        if (f.Flag == "--start-app")
                         {
-                            f.UserInput = input;
+                            string selectedApp = SelectAppFromDevice();
+                            if (!string.IsNullOrEmpty(selectedApp))
+                            {
+                                f.UserInput = selectedApp;
+                                f.IsSelected = true;
+                            }
+                            // Se torna null (ESC), non facciamo nulla (resta come prima)
                         }
                         else
                         {
-                            f.IsSelected = false;
+                            // COMPORTAMENTO STANDARD PER GLI ALTRI FLAG
+                            f.IsSelected = true;
+                            Console.SetCursorPosition(0, Console.WindowHeight - 2);
+                            Console.Write("Inserisci valore per " + f.Flag + ": ");
+                            Console.CursorVisible = true;
+                            string input = Console.ReadLine();
+                            Console.CursorVisible = false;
+                            if (!string.IsNullOrWhiteSpace(input))
+                            {
+                                f.UserInput = input;
+                            }
+                            else
+                            {
+                                f.IsSelected = false;
+                            }
                         }
                     }
                     else
@@ -525,7 +540,7 @@ namespace ScrcpyLauncher
             }
         }
 
-        // --- GESTIONE SELEZIONE APP (SHIFT CLICK) ---
+        // --- GESTIONE SELEZIONE APP (SHIFT CLICK & EDIT) ---
 
         static string InjectStartApp(string fullProfileLine, string packageName)
         {
@@ -560,7 +575,7 @@ namespace ScrcpyLauncher
             Console.WriteLine("Inizializzazione connessione ADB...");
 
             bool showSystemApps = false;
-            // Carichiamo tutte le liste subito per evitare ritardi nel toggle
+            // Carichiamo tutte le liste subito
             List<string> allApps = GetInstalledPackages(true);
             List<string> userApps = GetInstalledPackages(false);
 
@@ -575,7 +590,7 @@ namespace ScrcpyLauncher
             {
                 Console.Clear();
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("SELEZIONA APP DA AVVIARE:");
+                Console.WriteLine("SELEZIONA APP:");
                 Console.ResetColor();
 
                 if (showSystemApps)
@@ -625,8 +640,6 @@ namespace ScrcpyLauncher
                         else
                         {
                             // Priorità 2: Fuzzy search sui segmenti
-                            // Es. "feniz" vs "org.mozilla.fenix" -> split in org, mozilla, fenix
-                            // calcola distanza tra "feniz" e "fenix"
                             string[] segments = pLower.Split('.');
                             foreach (var seg in segments)
                             {
@@ -635,14 +648,14 @@ namespace ScrcpyLauncher
                             }
                         }
 
-                        // Mostriamo solo se score è decente (es. distanza < 4 o contains)
+                        // Mostriamo solo se score è decente
                         if (score < 4) 
                         {
                             matches.Add(new PackageMatch { Name = pkg, Score = score });
                         }
                     }
 
-                    // Ordiniamo: prima quelli che contengono (0), poi per distanza crescente
+                    // Ordiniamo
                     filteredList = matches.OrderBy(m => m.Score)
                                           .ThenBy(m => m.Name)
                                           .Select(m => m.Name)
@@ -695,7 +708,6 @@ namespace ScrcpyLauncher
                 }
                 else if (k.Key == ConsoleKey.Enter || (string.IsNullOrEmpty(searchBuffer) && (k.Key == ConsoleKey.X || k.Key == ConsoleKey.Spacebar)))
                 {
-                    // INVIO conferma sempre. X e SPAZIO solo se non si sta scrivendo (per evitare conflitti)
                     if (filteredList.Count > 0)
                         return filteredList[idx];
                 }
@@ -721,7 +733,6 @@ namespace ScrcpyLauncher
                 }
                 else if (!char.IsControl(k.KeyChar))
                 {
-                    // Aggiungi carattere alla ricerca
                     searchBuffer += k.KeyChar;
                     idx = 0;
                     scrollOffset = 0;
